@@ -1,0 +1,10 @@
+{{ header }}
+from enum import {% if string_values %}StrEnum{% else %}Enum{% endif %}
+
+
+class {{ name }}({% if string_values %}StrEnum{% else %}Enum{% endif %}):
+    """{{ doc }}"""
+
+{% for m in members %}
+    {{ m.name }} = {{ m.value }}
+{% endfor %}

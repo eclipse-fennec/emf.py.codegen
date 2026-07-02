@@ -1,0 +1,31 @@
+{{ header }}
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from typing import ClassVar
+{% for imp in runtime_imports %}
+{{ imp }}
+{% endfor %}
+{% if type_checking_imports %}
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+{% for imp in type_checking_imports %}
+    {{ imp }}
+{% endfor %}
+{% endif %}
+
+
+@dataclass
+class {{ name }}{% if base %}({{ base }}){% endif %}:
+    """{{ doc }}"""
+
+    ECLASS_URI: ClassVar[str] = "{{ eclass_uri }}"
+{% for f in fields %}
+    {{ f.name }}: {{ f.type }} = {{ f.field_expr }}
+{% endfor %}
+{% for op in operations %}
+
+    def {{ op.name }}(self{{ op.params }}) -> {{ op.return_type }}:
+        raise NotImplementedError("{{ op.name }} not implemented")
+{% endfor %}

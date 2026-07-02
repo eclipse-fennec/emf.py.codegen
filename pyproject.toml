@@ -1,0 +1,62 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "emf-codegen"
+version = "0.1.0.dev0"
+description = "Python code generator for Ecore models, built on EMFPy"
+readme = "README.md"
+requires-python = ">=3.11"
+license = "EPL-2.0"
+authors = [
+    { name = "Data In Motion Consulting GmbH" },
+    { name = "Software Hochstein GmbH" },
+]
+keywords = ["emf", "ecore", "codegen", "python", "generator"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Topic :: Software Development :: Code Generators",
+]
+dependencies = [
+    "emf",
+    "jinja2>=3.1",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "ruff>=0.6",
+    "mypy>=1.10",
+]
+
+[project.scripts]
+emfpy-codegen = "emf_codegen.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/eclipse-fennec/emf.ts.codegen"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/emf_codegen"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+addopts = "-ra"
+
+[tool.ruff]
+src = ["src", "tests"]
+line-length = 100
+target-version = "py311"
+# Generated output is an artifact, not project source — don't lint it.
+extend-exclude = ["examples/generated"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "W"]
+
+[tool.mypy]
+python_version = "3.11"
+mypy_path = "src"
+packages = ["emf_codegen"]
+strict = true
+warn_unused_ignores = true
