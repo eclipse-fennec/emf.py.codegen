@@ -95,6 +95,21 @@ def test_package_module_wires_metamodel(emf_files: dict[str, str]) -> None:
     assert "PackageRegistry.INSTANCE.register_package(PACKAGE)" in pkg
 
 
+def test_package_module_registers_operations(emf_files: dict[str, str]) -> None:
+    pkg = emf_files["library_package.py"]
+    assert "from emf import (" in pkg
+    assert "    EOperation," in pkg
+    assert "    EParameter," in pkg
+    assert '_op = EOperation("getFullName", EcoreDataTypes.EString)' in pkg
+    assert "PERSON.e_operations.add(_op)" in pkg
+    assert '_op = EOperation("calculateBonus", EcoreDataTypes.EDouble)' in pkg
+    assert "EMPLOYEE.e_operations.add(_op)" in pkg
+    # operation registration happens before the package is registered
+    assert pkg.index("EMPLOYEE.e_operations.add(_op)") < pkg.index(
+        "PackageRegistry.INSTANCE.register_package(PACKAGE)"
+    )
+
+
 def test_generated_package_runs(library_ecore_path: str, tmp_path: Path) -> None:
     for file in _gen(library_ecore_path, str(tmp_path)).generate().files:
         file.write(str(tmp_path / "emflib"))
@@ -131,6 +146,19 @@ def test_generated_package_runs(library_ecore_path: str, tmp_path: Path) -> None
 
         # factory
         assert type(emflib.LibraryFactory().create_book()).__name__ == "Book"
+
+        # operations are registered on the reflective EClass, not just as Python
+        # methods, and inherit across the class hierarchy like structural features
+        from emflib.library_package import EMPLOYEE, PERSON
+
+        assert [op.name for op in PERSON.e_operations] == ["getFullName"]
+        assert [op.name for op in EMPLOYEE.e_operations] == ["calculateBonus"]
+        assert {op.name for op in EMPLOYEE.e_all_operations()} == {
+            "getFullName", "calculateBonus",
+        }
+        full_name_op = PERSON.e_operations[0]
+        assert full_name_op.e_containing_class is PERSON
+        assert full_name_op.e_type is emflib.library_package.EcoreDataTypes.EString
     finally:
         sys.path.remove(str(tmp_path))
         for mod in list(sys.modules):
