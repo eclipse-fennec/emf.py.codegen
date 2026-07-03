@@ -72,6 +72,19 @@ def test_inheritance(emf_files: dict[str, str]) -> None:
     assert "def books(self) -> EList[Book]:" in emf_files["author.py"]
 
 
+def test_operation_body_from_genmodel_annotation(emf_files: dict[str, str]) -> None:
+    person = emf_files["person.py"]
+    assert "def getFullName(self) -> str:" in person
+    assert 'return self.firstName + " " + self.lastName' in person
+    assert "raise NotImplementedError" not in person
+
+
+def test_operation_without_annotation_stays_a_stub(emf_files: dict[str, str]) -> None:
+    employee = emf_files["employee.py"]
+    assert "def calculateBonus(self) -> float:" in employee
+    assert 'raise NotImplementedError("calculateBonus not implemented")' in employee
+
+
 def test_package_module_wires_metamodel(emf_files: dict[str, str]) -> None:
     pkg = emf_files["library_package.py"]
     assert 'BOOK = EClass("Book", abstract=False)' in pkg
@@ -100,8 +113,11 @@ def test_generated_package_runs(library_ecore_path: str, tmp_path: Path) -> None
         # inheritance + inherited attribute
         author = emflib.Author()
         author.firstName = "George"
+        author.lastName = "Orwell"
         assert author.firstName == "George"
         assert isinstance(author, emflib.Person)
+        # body-annotated operation, inherited from Person, backed by e_get properties
+        assert author.getFullName() == "George Orwell"
 
         # bidirectional (non-containment) opposite maintenance via e_set
         book.author = author

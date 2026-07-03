@@ -50,6 +50,19 @@ def test_class_has_eclass_uri_and_metadata(decorator_files: dict[str, str]) -> N
     assert '"kind": "reference"' in book
 
 
+def test_operation_body_from_genmodel_annotation(decorator_files: dict[str, str]) -> None:
+    person = decorator_files["person.py"]
+    assert "def getFullName(self) -> str:" in person
+    assert 'return self.firstName + " " + self.lastName' in person
+    assert "raise NotImplementedError" not in person
+
+
+def test_operation_without_annotation_stays_a_stub(decorator_files: dict[str, str]) -> None:
+    employee = decorator_files["employee.py"]
+    assert "def calculateBonus(self) -> float:" in employee
+    assert 'raise NotImplementedError("calculateBonus not implemented")' in employee
+
+
 def test_generated_package_is_importable(
     library_ecore_path: str, tmp_path: Path
 ) -> None:
@@ -74,6 +87,9 @@ def test_generated_package_is_importable(
         meta = {f.name: f.metadata for f in fields(book)}
         assert meta["title"]["kind"] == "attribute"
         assert meta["category"]["kind"] == "enum"
+
+        author = declib.Author(firstName="George", lastName="Orwell")
+        assert author.getFullName() == "George Orwell"
     finally:
         sys.path.remove(str(tmp_path))
         for mod in list(sys.modules):

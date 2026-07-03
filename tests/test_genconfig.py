@@ -83,3 +83,19 @@ class TestConverter:
         library = next(gc for gc in gp.gen_classes if gc.ecore_class.name == "Library")
         books = next(f for f in library.gen_features if f.ecore_feature.name == "books")
         assert books.create_child is True
+
+    def test_operation_body_read_from_genmodel_annotation(self, config: GenConfig) -> None:
+        gp = GenConfigConverter().convert(config).gen_packages[0]
+        person = next(gc for gc in gp.gen_classes if gc.ecore_class.name == "Person")
+        ops = {o.ecore_operation.name: o for o in person.gen_operations}
+        full_name = ops["getFullName"]
+        assert full_name.generate_body is True
+        assert full_name.body == 'return self.firstName + " " + self.lastName'
+
+    def test_operation_without_annotation_has_no_body(self, config: GenConfig) -> None:
+        gp = GenConfigConverter().convert(config).gen_packages[0]
+        employee = next(gc for gc in gp.gen_classes if gc.ecore_class.name == "Employee")
+        ops = {o.ecore_operation.name: o for o in employee.gen_operations}
+        bonus = ops["calculateBonus"]
+        assert bonus.generate_body is False
+        assert bonus.body is None

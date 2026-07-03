@@ -36,6 +36,7 @@ _PROPERTY = {
     "readonly": PropertyMode.READONLY,
     "none": PropertyMode.NONE,
 }
+_GENMODEL_ANNOTATION_SOURCE = "http://www.eclipse.org/emf/2002/GenModel"
 
 
 class GenConfigConverter:
@@ -145,7 +146,19 @@ class GenConfigConverter:
         )
 
     def _convert_operation(self, op: EOperation) -> GenOperation:
-        return GenOperation(ecore_operation=op)
+        body = self._read_body_annotation(op)
+        return GenOperation(ecore_operation=op, generate_body=body is not None, body=body)
+
+    def _read_body_annotation(self, op: EOperation) -> str | None:
+        """Read the GenModel ``body`` annotation, mirroring Java EMF's convention
+        of hand-authored method bodies stored as an ``eAnnotations`` detail."""
+        annotation = op.get_e_annotation(_GENMODEL_ANNOTATION_SOURCE)
+        if annotation is None:
+            return None
+        body = annotation.details.get_by_key("body")
+        if body is None or not body.strip():
+            return None
+        return body
 
     def _convert_enum(self, e_enum: EEnum) -> GenEnum:
         return GenEnum(ecore_enum=e_enum, use_string_values=False)

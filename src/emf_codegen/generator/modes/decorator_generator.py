@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING, Any
 
 from emf_codegen.generator.import_resolver import module_name
 from emf_codegen.generator.modes.base_generator import BaseGenerator
-from emf_codegen.util.string_utils import make_safe_identifier
+from emf_codegen.util.string_utils import indent_body, make_safe_identifier
 
 if TYPE_CHECKING:
     from emf_codegen.generator.generated_file import GeneratedFile
@@ -43,7 +43,7 @@ class DecoratorGenerator(BaseGenerator):
             runtime_imports=imports.runtime,
             type_checking_imports=imports.type_checking,
             fields=[self._field(gf.ecore_feature) for gf in gen_class.gen_features],
-            operations=[self._operation(go.ecore_operation) for go in gen_class.gen_operations],
+            operations=[self._operation(go) for go in gen_class.gen_operations],
         )
         return self.create_file(self.module_path(gen_package.base_package, name), content)
 
@@ -112,7 +112,8 @@ class DecoratorGenerator(BaseGenerator):
             "field_expr": field_expr,
         }
 
-    def _operation(self, op: Any) -> dict[str, str]:
+    def _operation(self, gen_op: Any) -> dict[str, Any]:
+        op = gen_op.ecore_operation
         mapper = self.context.type_mapper
         params = "".join(
             f", {make_safe_identifier(p.name or 'arg')}: {mapper.map_classifier(p.e_type)}"
@@ -123,4 +124,5 @@ class DecoratorGenerator(BaseGenerator):
             "name": make_safe_identifier(op.name or "op"),
             "params": params,
             "return_type": return_type,
+            "body_lines": indent_body(gen_op.body) if gen_op.generate_body else None,
         }
