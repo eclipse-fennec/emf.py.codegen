@@ -194,10 +194,15 @@ class EmfGenerator(BaseGenerator):
         cvar = {c.name: to_upper_snake(c.name or "cls") for c in classes}
         evar = {e.name: to_upper_snake(e.name or "enum") for e in enums}
 
+        has_operations = any(c.e_operations for c in classes)
+
         lines = [self._header(), "from __future__ import annotations", ""]
         lines.append("from emf import (")
-        for sym in ("EAttribute", "EClass", "EcoreDataTypes", "EEnum",
-                    "EEnumLiteral", "EPackage", "EReference", "PackageRegistry"):
+        symbols = ["EAttribute", "EClass", "EcoreDataTypes", "EEnum",
+                   "EEnumLiteral", "EPackage", "EReference", "PackageRegistry"]
+        if has_operations:
+            symbols.extend(["EOperation", "EParameter"])
+        for sym in symbols:
             lines.append(f"    {sym},")
         lines.append(")")
         for e in enums:
@@ -303,6 +308,17 @@ class EmfGenerator(BaseGenerator):
                         lit = f"{cvar[c.name]}__{to_upper_snake(feature.name or 'f')}"
                         olit = f"{cvar[owner]}__{to_upper_snake(opp.name or 'f')}"
                         out.append(f"{lit}.e_opposite = {olit}")
+        # Operations: register EOperation objects for reflective discovery.
+        for c in classes:
+            for op in c.e_operations:
+                ret_type = op.e_type.name if op.e_type is not None else None
+                ret_expr = self._classifier_expr(ret_type, cvar, evar)
+                out.append(f'_op = EOperation("{op.name}", {ret_expr})')
+                for param in op.e_parameters:
+                    p_type = param.e_type.name if param.e_type is not None else None
+                    p_expr = self._classifier_expr(p_type, cvar, evar)
+                    out.append(f'_op.e_parameters.add(EParameter("{param.name}", {p_expr}))')
+                out.append(f"{cvar[c.name]}.e_operations.add(_op)")
         # Classifiers + registration.
         for e in enums:
             out.append(f"PACKAGE.e_classifiers.add({evar[e.name]})")
@@ -310,6 +326,22 @@ class EmfGenerator(BaseGenerator):
             out.append(f"PACKAGE.e_classifiers.add({cvar[c.name]})")
         out.append("PackageRegistry.INSTANCE.register_package(PACKAGE)")
         return out
+
+    def _classifier_expr(
+        self, type_name: str | None, cvar: dict[Any, str], evar: dict[Any, str]
+    ) -> str:
+        """Resolve an EOperation return/parameter type to a runtime-classifier
+        expression: a local EClass/EEnum literal, an ``EcoreDataTypes`` member,
+        or the ``EJavaObject`` fallback for anything not resolvable locally."""
+        if type_name is None:
+            return "None"
+        if type_name in cvar:
+            return cvar[type_name]
+        if type_name in evar:
+            return evar[type_name]
+        if type_name in _ECORE_DATATYPES:
+            return f"EcoreDataTypes.{type_name}"
+        return "EcoreDataTypes.EJavaObject"
 
     # ----- factory ---------------------------------------------------------
 
