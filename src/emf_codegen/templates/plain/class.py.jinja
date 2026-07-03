@@ -28,5 +28,11 @@ class {{ name }}{% if base %}({{ base }}){% endif %}:
 {% for op in operations %}
 
     def {{ op.name }}(self{{ op.params }}) -> {{ op.return_type }}:
+{% if op.body_lines %}
+{% for line in op.body_lines %}
+{{ line }}
+{% endfor %}
+{% else %}
         raise NotImplementedError("{{ op.name }} not implemented")
+{% endif %}
 {% endfor %}

@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import keyword
 import re
+import textwrap
 
 
 def capitalize(text: str) -> str:
@@ -83,3 +84,10 @@ def make_safe_identifier(text: str) -> str:
     """A safe Python identifier; reserved words get a trailing underscore."""
     safe = to_safe_identifier(text)
     return safe + "_" if is_reserved_word(safe) else safe
+
+
+def indent_body(body: str, indent: str = "        ") -> list[str]:
+    """Dedent hand-authored operation-body source and re-indent it for splicing
+    into a generated method (blank lines are left empty, not padded)."""
+    dedented = textwrap.dedent(body).strip("\n")
+    return [f"{indent}{line}" if line.strip() else "" for line in dedented.split("\n")]

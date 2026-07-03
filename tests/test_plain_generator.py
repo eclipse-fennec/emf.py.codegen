@@ -65,6 +65,19 @@ def test_inheritance(plain_files: dict[str, str]) -> None:
     assert "class Author(Person):" in author
 
 
+def test_operation_body_from_genmodel_annotation(plain_files: dict[str, str]) -> None:
+    person = plain_files["person.py"]
+    assert "def getFullName(self) -> str:" in person
+    assert 'return self.firstName + " " + self.lastName' in person
+    assert "raise NotImplementedError" not in person
+
+
+def test_operation_without_annotation_stays_a_stub(plain_files: dict[str, str]) -> None:
+    employee = plain_files["employee.py"]
+    assert "def calculateBonus(self) -> float:" in employee
+    assert 'raise NotImplementedError("calculateBonus not implemented")' in employee
+
+
 def test_generated_package_is_importable(
     library_ecore_path: str, tmp_path: Path
 ) -> None:
@@ -92,6 +105,8 @@ def test_generated_package_is_importable(
         assert author.firstName == "George"
         # inheritance: Author is a Person
         assert isinstance(author, genlib.Person)
+        # body-annotated operation, inherited from Person
+        assert author.getFullName() == "George Orwell"
     finally:
         sys.path.remove(str(tmp_path))
         for mod in list(sys.modules):

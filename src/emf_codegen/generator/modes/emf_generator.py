@@ -20,7 +20,12 @@ from emf import EClass, EEnum, EReference
 
 from emf_codegen.generator.generated_file import GeneratedFile
 from emf_codegen.generator.modes.base_generator import BaseGenerator
-from emf_codegen.util.string_utils import make_safe_identifier, to_lower_snake, to_upper_snake
+from emf_codegen.util.string_utils import (
+    indent_body,
+    make_safe_identifier,
+    to_lower_snake,
+    to_upper_snake,
+)
 
 if TYPE_CHECKING:
     from emf_codegen.genmodel import GenClass, GenEnum, GenPackage
@@ -173,10 +178,12 @@ class EmfGenerator(BaseGenerator):
         )
         ret = mapper.map_classifier(op.e_type) if op.e_type is not None else "None"
         op_name = make_safe_identifier(op.name or "op")
-        return [
-            f"    def {op_name}(self{params}) -> {ret}:",
-            f'        raise NotImplementedError("{op_name} not implemented")',
-        ]
+        lines = [f"    def {op_name}(self{params}) -> {ret}:"]
+        if gen_op.generate_body:
+            lines.extend(indent_body(gen_op.body))
+        else:
+            lines.append(f'        raise NotImplementedError("{op_name} not implemented")')
+        return lines
 
     # ----- package (metamodel) module --------------------------------------
 
