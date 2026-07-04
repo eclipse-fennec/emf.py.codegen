@@ -74,7 +74,7 @@ def test_operation_body_from_genmodel_annotation(plain_files: dict[str, str]) ->
 
 def test_operation_without_annotation_stays_a_stub(plain_files: dict[str, str]) -> None:
     employee = plain_files["employee.py"]
-    assert "def calculateBonus(self) -> float:" in employee
+    assert "def calculateBonus(self, year: int) -> float:" in employee
     assert 'raise NotImplementedError("calculateBonus not implemented")' in employee
 
 
