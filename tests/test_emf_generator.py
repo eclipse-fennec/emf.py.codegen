@@ -81,7 +81,7 @@ def test_operation_body_from_genmodel_annotation(emf_files: dict[str, str]) -> N
 
 def test_operation_without_annotation_stays_a_stub(emf_files: dict[str, str]) -> None:
     employee = emf_files["employee.py"]
-    assert "def calculateBonus(self) -> float:" in employee
+    assert "def calculateBonus(self, year: int) -> float:" in employee
     assert 'raise NotImplementedError("calculateBonus not implemented")' in employee
 
 
@@ -104,10 +104,59 @@ def test_package_module_registers_operations(emf_files: dict[str, str]) -> None:
     assert "PERSON.e_operations.add(_op)" in pkg
     assert '_op = EOperation("calculateBonus", EcoreDataTypes.EDouble)' in pkg
     assert "EMPLOYEE.e_operations.add(_op)" in pkg
+    # Issue #7: non-default multiplicity is emitted
+    assert "_op.lower_bound = 1" in pkg
+    assert '_param = EParameter("year", EcoreDataTypes.EInt)' in pkg
+    assert "_param.lower_bound = 1" in pkg
+    assert "_op.e_parameters.add(_param)" in pkg
     # operation registration happens before the package is registered
     assert pkg.index("EMPLOYEE.e_operations.add(_op)") < pkg.index(
         "PackageRegistry.INSTANCE.register_package(PACKAGE)"
     )
+
+
+def test_barrel_factory_is_typed_not_generic(emf_files: dict[str, str]) -> None:
+    """Issue #4: FACTORY in barrel must come from the typed factory module,
+    not the generic PACKAGE.e_factory_instance from the package module."""
+    init = emf_files["__init__.py"]
+    # FACTORY must be imported from the factory module, not the package module
+    assert "from .library_factory import FACTORY, LibraryFactory" in init
+    # The package module import must NOT include FACTORY
+    assert "from .library_package import PACKAGE" in init
+    assert "from .library_package import FACTORY" not in init
+
+
+def test_package_module_does_not_export_factory(emf_files: dict[str, str]) -> None:
+    """Issue #4: the package module should not define a FACTORY variable."""
+    pkg = emf_files["library_package.py"]
+    assert "\nFACTORY = " not in pkg
+
+
+def test_classifier_expr_warns_on_unknown_type(library_ecore_path: str, tmp_path: Path) -> None:
+    """Issue #8: _classifier_expr should warn on unresolved types."""
+    import warnings as w
+    from emf import EClass, EOperation, EPackage
+
+    # Build a package with an operation whose return type is from another package
+    pkg = EPackage("test", ns_uri="http://test", ns_prefix="test")
+    cls = EClass("Foo")
+    # Create an operation with a type that can't be resolved locally
+    op = EOperation("doWork")
+    foreign_cls = EClass("ForeignClass")
+    op.e_type = foreign_cls  # type not in local classes/enums/ecore datatypes
+    cls.e_operations.add(op)
+    pkg.e_classifiers.add(cls)
+
+    from emf_codegen.genconfig import GenConfig, GenConfigConverter, GenerationSettings, PackageSettings
+    config = GenConfig(
+        ecore_package=pkg,
+        generation=GenerationSettings(mode="emf", output_dir=str(tmp_path)),
+        package=PackageSettings(prefix="Test", base_package=""),
+    )
+    with w.catch_warnings(record=True) as caught:
+        w.simplefilter("always")
+        CodeGenerator(GenConfigConverter().convert(config)).generate()
+    assert any("ForeignClass" in str(warning.message) for warning in caught)
 
 
 def test_generated_package_runs(library_ecore_path: str, tmp_path: Path) -> None:

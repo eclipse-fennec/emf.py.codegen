@@ -14,6 +14,7 @@ Port of ``modes/EmfGenerator.ts``. Emits, per package:
 
 from __future__ import annotations
 
+import warnings
 from typing import TYPE_CHECKING, Any
 
 from emf import EClass, EEnum, EReference
@@ -246,7 +247,6 @@ class EmfGenerator(BaseGenerator):
                 mod = to_lower_snake(c.name or "cls")
                 lines.append(f"    from .{mod} import {c.name}")
                 lines.append(f"    _factory.register_creator({cvar[c.name]}, lambda _ec, _C={c.name}: _C())")
-        lines.append("FACTORY = PACKAGE.e_factory_instance")
         path = self._module_in(gen_package, f"{self._package_module(gen_package)}.py")
         return self.create_file(path, "\n".join(lines) + "\n")
 
@@ -314,10 +314,19 @@ class EmfGenerator(BaseGenerator):
                 ret_type = op.e_type.name if op.e_type is not None else None
                 ret_expr = self._classifier_expr(ret_type, cvar, evar)
                 out.append(f'_op = EOperation("{op.name}", {ret_expr})')
+                if op.lower_bound != 0:
+                    out.append(f"_op.lower_bound = {op.lower_bound}")
+                if op.upper_bound != 1:
+                    out.append(f"_op.upper_bound = {op.upper_bound}")
                 for param in op.e_parameters:
                     p_type = param.e_type.name if param.e_type is not None else None
                     p_expr = self._classifier_expr(p_type, cvar, evar)
-                    out.append(f'_op.e_parameters.add(EParameter("{param.name}", {p_expr}))')
+                    out.append(f'_param = EParameter("{param.name}", {p_expr})')
+                    if param.lower_bound != 0:
+                        out.append(f"_param.lower_bound = {param.lower_bound}")
+                    if param.upper_bound != 1:
+                        out.append(f"_param.upper_bound = {param.upper_bound}")
+                    out.append("_op.e_parameters.add(_param)")
                 out.append(f"{cvar[c.name]}.e_operations.add(_op)")
         # Classifiers + registration.
         for e in enums:
@@ -341,6 +350,11 @@ class EmfGenerator(BaseGenerator):
             return evar[type_name]
         if type_name in _ECORE_DATATYPES:
             return f"EcoreDataTypes.{type_name}"
+        warnings.warn(
+            f"Unresolved type '{type_name}' in operation signature, "
+            f"falling back to EJavaObject",
+            stacklevel=2,
+        )
         return "EcoreDataTypes.EJavaObject"
 
     # ----- factory ---------------------------------------------------------
@@ -395,9 +409,9 @@ class EmfGenerator(BaseGenerator):
         for c in classes:
             lines.append(f"from .{to_lower_snake(c.name or 'cls')} import {c.name}")
             exports.append(c.name or "")
-        lines.append(f"from .{pkg_module} import FACTORY, PACKAGE")
-        lines.append(f"from .{to_lower_snake(gen_package.prefix)}_factory import "
-                     f"{gen_package.prefix}Factory")
+        lines.append(f"from .{pkg_module} import PACKAGE")
+        factory_module = to_lower_snake(gen_package.prefix) + "_factory"
+        lines.append(f"from .{factory_module} import FACTORY, {gen_package.prefix}Factory")
         exports += ["PACKAGE", "FACTORY", f"{gen_package.prefix}Factory"]
         lines.append("")
         lines.append("__all__ = [")
